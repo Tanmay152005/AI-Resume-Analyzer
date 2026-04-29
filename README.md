@@ -40,5 +40,7 @@ An AI-powered web application that analyzes resumes against job descriptions and
  - Added skills_db.py with categorized tech skill directory
  - Added skill_extractor.py for skill matching and comparison
  - Updated app.py to use skill-based matching with category display
+
+ 
 ---
 
