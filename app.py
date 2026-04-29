@@ -2,11 +2,13 @@ import streamlit as st
 import os
 import uuid
 
+from skill_extractor import extract_skills, categorize_skills, compare_skills
+from resume_validator import is_resume
+
 from src.parser import extract_text_from_pdf
 from src.preprocess import preprocess_text
 from src.vectorizer import get_tfidf_vectors
 from src.similarity import calculate_similarity
-from src.keyword_matcher import get_missing_keywords
 from src.gemini_service import get_resume_feedback
 
 
@@ -40,42 +42,65 @@ if st.button("Analyze Resume"):
             with open(file_path, "wb") as f:
                 f.write(uploaded_file.read())
 
-            # Step 1: Extract text
+            # Step 1: Extract Resume Text
             resume_text = extract_text_from_pdf(file_path)
 
-            # Step 2: Preprocess
+            # Step 1.5: Validate Resume
+            if not is_resume(resume_text):
+                os.remove(file_path)
+                st.error("Uploaded document does not appear to be a valid resume. Please upload a proper resume PDF.")
+                st.stop()
+
+            # Step 2: Preprocess Text
             clean_resume = preprocess_text(resume_text)
             clean_jd = preprocess_text(jd_text)
 
-            # Step 3: TF-IDF
+            # Step 3: TF-IDF Vectorization
             resume_vec, jd_vec = get_tfidf_vectors(clean_resume, clean_jd)
 
-            # Step 4: Score
+            # Step 4: Similarity Score
             score = calculate_similarity(resume_vec, jd_vec)
             match_percentage = round(score * 100, 2)
 
-            # Step 5: Keywords
-            missing_keywords = get_missing_keywords(clean_resume, clean_jd)
+            # Step 5: Skill Extraction
+            jd_skills = extract_skills(clean_jd)
+            resume_skills = extract_skills(clean_resume)
 
-            # Step 6: Gemini (only if needed)
-            if missing_keywords:
-                feedback = get_resume_feedback(resume_text, jd_text, missing_keywords)
+            matched_skills, missing_skills = compare_skills(jd_skills, resume_skills)
+
+            categorized_matched = categorize_skills(matched_skills)
+            categorized_missing = categorize_skills(missing_skills)
+
+            # Step 6: Gemini Feedback
+            if missing_skills:
+                feedback = get_resume_feedback(resume_text, jd_text, missing_skills)
             else:
                 feedback = "✅ Your resume is already well aligned with the job description."
 
-            # Cleanup file
+            # Cleanup temp file
             os.remove(file_path)
 
             # -------- OUTPUT --------
+
             st.subheader("📊 Match Score")
             st.progress(int(match_percentage))
             st.write(f"**Match Percentage: {match_percentage}%**")
 
-            st.subheader("❌ Missing Keywords")
-            if missing_keywords:
-                st.write(", ".join(missing_keywords))
+            st.subheader("✅ Matched Skills")
+            if categorized_matched:
+                for category, skills in categorized_matched.items():
+                    formatted_skills = [skill.title() for skill in skills]
+                    st.write(f"**{category}:** {', '.join(formatted_skills)}")
             else:
-                st.success("No major keywords missing 🎉")
+                st.warning("No matched skills detected.")
+
+            st.subheader("❌ Missing Skills")
+            if categorized_missing:
+                for category, skills in categorized_missing.items():
+                    formatted_skills = [skill.title() for skill in skills]
+                    st.write(f"**{category}:** {', '.join(formatted_skills)}")
+            else:
+                st.success("No major skills missing 🎉")
 
             st.subheader("🤖 Suggestions")
             st.write(feedback)
