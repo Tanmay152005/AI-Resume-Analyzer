@@ -1,5 +1,7 @@
+# 📦 `requirements.txt`
+```text
 streamlit
-pdfminer.six
-python-docx
-scikit-learn
-sentence-transformers
+spacy
+PyPDF2
+python-dotenv
+google-genai
