@@ -1,6 +1,7 @@
 # 📦 `requirements.txt`
 ```text
 streamlit
+scikit-learn
 spacy
 PyPDF2
 python-dotenv
